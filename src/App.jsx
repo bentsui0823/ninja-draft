@@ -553,7 +553,7 @@ const App = () => {
   // ★★★ 自動判斷連線環境 (Render 部署用) ★★★
   const SERVER_URL = window.location.hostname === 'localhost'
     ? 'http://localhost:8000'
-    : 'https://ninja-draft-server.onrender.com'; // <--- 之後這裡填入你的 Render 網址
+    : 'https://ninja-draft-server.onrender.com';
 
   const handleJoin = (matchID, playerID) => {
     // 產生唯一憑證 (避免重整後斷線)
