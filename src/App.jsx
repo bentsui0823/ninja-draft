@@ -8,7 +8,7 @@ import { cardDatabase } from './database';
 // ★★★ 1. 把 SERVER_URL 定義在最外面，讓 Lobby 和 App 都能用 ★★★
 const SERVER_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:8000'
-  : 'https://ninja-draft-server.onrender.com'; // 請確認這裡是你 Render 後端的網址
+  : 'https://ninja-draft-server.onrender.com';
 
 const NinjaBoard = ({ G, ctx, moves, playerID, matchID, onLeave }) => {
   

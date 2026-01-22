@@ -7,14 +7,15 @@ import { NinjaDraft } from './src/Game.js';
 const server = Server({
   games: [NinjaDraft],
   origins: [
-    // 允許 localhost 開發
+    // 1. 允許本機開發
     Origins.LOCALHOST,
-    // ★★★ 重要：允許所有來源連線 (為了方便部署，先設為 *，正式上線建議改成你的前端網址) ★★★
-    "*" 
+    // 2. ★★★ 加入你的 Render 前端網址 (不帶斜線) ★★★
+    "https://ninja-draft-client.onrender.com",
+    // 3. 保留這行以防萬一
+    "*"
   ],
 });
 
-// ★★★ 重要：讀取雲端分配的 PORT，如果沒有才用 8000 ★★★
 const PORT = process.env.PORT || 8000;
 
 server.run(PORT, () => {
