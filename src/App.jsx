@@ -5,14 +5,27 @@ import { SocketIO } from 'boardgame.io/multiplayer';
 import { NinjaDraft } from './Game';
 import { cardDatabase } from './database';
 
+// ★★★ 1. 把 SERVER_URL 定義在最外面，讓 Lobby 和 App 都能用 ★★★
+const SERVER_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:8000'
+  : 'https://ninja-draft-server.onrender.com'; // 請確認這裡是你 Render 後端的網址
+
 const NinjaBoard = ({ G, ctx, moves, playerID, matchID, onLeave }) => {
   
   const [draftSelection, setDraftSelection] = useState([]);
 
   // --- CSS ---
-  // ★★★ 修正點 1: 在 .game-container 加入 color: #333，防止整頁文字被深色模式變白 ★★★
   const css = `
-    .game-container { padding: 20px; font-family: sans-serif; max-width: 1200px; margin: 0 auto; color: #333; }
+    .game-container { 
+      padding: 20px; 
+      font-family: sans-serif; 
+      max-width: 1200px; 
+      margin: 0 auto; 
+      color: #333; 
+      background-color: #ffffff;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
     .game-layout { display: flex; gap: 30px; align-items: flex-start; }
     .left-panel { flex: 0 0 640px; max-width: 100%; }
     .right-panel { flex: 1; min-width: 300px; position: sticky; top: 20px; }
@@ -212,7 +225,6 @@ const NinjaBoard = ({ G, ctx, moves, playerID, matchID, onLeave }) => {
       padding: '8px', margin: '4px', borderRadius: '8px', textAlign: 'center',
       border: isSelected ? '3px solid #e74c3c' : (isTaken ? '1px dashed #ccc' : '1px solid #999'),
       backgroundColor: bgColor, fontSize: '13px', fontWeight: 'bold',
-      // ★★★ 修正點 2: 在這裡強制加入 color: #333，確保卡牌文字不會變白 ★★★
       color: '#333', 
       cursor: (isTaken || isIntermission ? 'not-allowed' : (isMulligan || (isMyTurn && !isMulligan)) ? 'pointer' : 'default'),
       boxShadow: isTaken ? 'none' : '2px 2px 5px rgba(0,0,0,0.05)',
@@ -269,6 +281,7 @@ const NinjaBoard = ({ G, ctx, moves, playerID, matchID, onLeave }) => {
     const tScore = treasures.length >= 15 ? 22 : treasures.length >= 12 ? 16 : treasures.length >= 8 ? 8 : 0;
     const maxBigBonus = Math.max(rScore, aScore, tScore);
     const maxCategoryCount = Math.max(chars.length, weapons.length, treasures.length);
+    
     const renderTierLine = (label, currentCount, tiers, scores, isHighestCount) => {
       let activeIdx = -1;
       for (let i = tiers.length - 1; i >= 0; i--) { if (currentCount >= tiers[i]) { activeIdx = i; break; } }
@@ -456,15 +469,15 @@ const NinjaLobby = ({ onJoin }) => {
   const [playerID, setPlayerID] = useState(null);
   const [roomStatus, setRoomStatus] = useState({ 0: false, 1: false });
 
-  // 自動檢查房間狀態
+  // ★★★ 2. 使用 SERVER_URL 來檢查房間狀態 ★★★
   useEffect(() => {
     const checkRoom = async () => {
         if (!matchID) return;
         try {
-            const resp = await fetch(`http://localhost:8000/games/ninja-draft/${matchID}`);
+            // 使用變數 SERVER_URL
+            const resp = await fetch(`${SERVER_URL}/games/ninja-draft/${matchID}`);
             if (resp.ok) {
                 const data = await resp.json();
-                // 只要有人連線中，就視為已佔用
                 const p0Occupied = data.players && data.players[0] && data.players[0].isConnected;
                 const p1Occupied = data.players && data.players[1] && data.players[1].isConnected;
                 setRoomStatus({ 0: p0Occupied, 1: p1Occupied });
@@ -476,7 +489,6 @@ const NinjaLobby = ({ onJoin }) => {
         }
     };
     
-    // 每次 matchID 變更後立即檢查，並每 1.5 秒輪詢
     checkRoom();
     const interval = setInterval(checkRoom, 1500);
     return () => clearInterval(interval);
@@ -543,13 +555,7 @@ const NinjaLobby = ({ onJoin }) => {
 const App = () => {
   const [gameState, setGameState] = useState(null);
 
-  // ★★★ 自動判斷連線環境 (Render 部署用) ★★★
-  const SERVER_URL = window.location.hostname === 'localhost'
-    ? 'http://localhost:8000'
-    : 'https://ninja-draft-server.onrender.com'; // <--- 之後這裡填入你的 Render 網址
-
   const handleJoin = (matchID, playerID) => {
-    // 產生唯一憑證 (避免重整後斷線)
     const credKey = `ninja_cred_${matchID}_${playerID}`;
     let credentials = localStorage.getItem(credKey);
     if (!credentials) {
@@ -560,7 +566,7 @@ const App = () => {
     const NinjaClient = Client({
       game: NinjaDraft,
       board: NinjaBoard,
-      // 使用變數決定連線位址
+      // ★★★ 3. 使用 SERVER_URL 連線 ★★★
       multiplayer: SocketIO({ server: SERVER_URL }),
       credentials: credentials,
       debug: false,
