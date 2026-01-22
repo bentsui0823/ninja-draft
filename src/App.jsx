@@ -5,7 +5,7 @@ import { SocketIO } from 'boardgame.io/multiplayer';
 import { NinjaDraft } from './Game';
 import { cardDatabase } from './database';
 
-// ★★★ 1. 把 SERVER_URL 定義在最外面，讓 Lobby 和 App 都能用 ★★★
+// 1. 定義 Server URL (Render 用)
 const SERVER_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:8000'
   : 'https://ninja-draft-server.onrender.com';
@@ -125,7 +125,8 @@ const NinjaBoard = ({ G, ctx, moves, playerID, matchID, onLeave }) => {
             for (let i = setTiers.length - 1; i >= 0; i--) { if (stats.setsCount >= setTiers[i]) { setTierIdx = i; break; } }
             const weaponTiers = [3, 4, 5]; const weaponScores = [2, 5, 7];
             const weaponElements = [{ key: 'fire', label: '火', color: '#e67e22' }, { key: 'water', label: '水', color: '#2980b9' }, { key: 'thunder', label: '雷', color: '#f1c40f' }, { key: 'wind', label: '風', color: '#27ae60' }];
-            
+            const playerName = getPlayerName(id);
+
             return (
               <div key={id} style={{ padding: '20px', border: isPWinner ? '4px solid #f1c40f' : '1px solid #ccc', borderRadius: '16px', width: '340px', backgroundColor: id === playerID ? '#fcfdff' : '#fff', boxShadow: isPWinner ? '0 8px 20px rgba(241, 196, 15, 0.3)' : 'none', textAlign: 'left', position: 'relative', overflow: 'hidden' }}>
                 {isPWinner && <div style={{ position: 'absolute', top: '10px', right: '-30px', backgroundColor: '#f1c40f', color: '#fff', padding: '5px 40px', transform: 'rotate(45deg)', fontWeight: 'bold', fontSize: '12px', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}>WINNER</div>}
@@ -281,7 +282,6 @@ const NinjaBoard = ({ G, ctx, moves, playerID, matchID, onLeave }) => {
     const tScore = treasures.length >= 15 ? 22 : treasures.length >= 12 ? 16 : treasures.length >= 8 ? 8 : 0;
     const maxBigBonus = Math.max(rScore, aScore, tScore);
     const maxCategoryCount = Math.max(chars.length, weapons.length, treasures.length);
-    
     const renderTierLine = (label, currentCount, tiers, scores, isHighestCount) => {
       let activeIdx = -1;
       for (let i = tiers.length - 1; i >= 0; i--) { if (currentCount >= tiers[i]) { activeIdx = i; break; } }
@@ -469,12 +469,11 @@ const NinjaLobby = ({ onJoin }) => {
   const [playerID, setPlayerID] = useState(null);
   const [roomStatus, setRoomStatus] = useState({ 0: false, 1: false });
 
-  // ★★★ 2. 使用 SERVER_URL 來檢查房間狀態 ★★★
+  // 自動檢查房間狀態
   useEffect(() => {
     const checkRoom = async () => {
         if (!matchID) return;
         try {
-            // 使用變數 SERVER_URL
             const resp = await fetch(`${SERVER_URL}/games/ninja-draft/${matchID}`);
             if (resp.ok) {
                 const data = await resp.json();
@@ -495,22 +494,9 @@ const NinjaLobby = ({ onJoin }) => {
   }, [matchID]);
 
   const handleJoinClick = () => {
-    // 1. 基本檢查
-    if (playerID === null) { alert("請選擇位置 (P0 或 P1)！"); return; }
-
-    // 2. ★★★ 防雙開檢查 (Anti-Dual-Boxing) ★★★
-    // 計算對手的 ID (如果是 0 就查 1，是 1 就查 0)
-    const opponentID = playerID === '0' ? '1' : '0';
-    const opponentKey = `ninja_cred_${matchID}_${opponentID}`;
-    
-    // 檢查瀏覽器是否已經有對手的憑證
-    if (localStorage.getItem(opponentKey)) {
-        alert(`⛔ 你已經在這個房間擔任 Player ${opponentID} 了！\n為了公平起見，同一個瀏覽器不能同時操作兩邊。\n`);
-        return;
-    }
-
-    // 3. 通過檢查，進入遊戲
-    onJoin(matchID, playerID);
+      if (playerID === null) { alert("請選擇位置 (P0 或 P1)！"); return; }
+      // ★★★ 移除了 localStorage 防雙開檢查，現在可以自由測試 ★★★
+      onJoin(matchID, playerID);
   };
 
   return (
@@ -529,6 +515,7 @@ const NinjaLobby = ({ onJoin }) => {
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>選擇位置</label>
           <div style={{ display: 'flex', gap: '10px' }}>
+            {/* ★★★ 修改這裡：文字變成「已有人登入」 ★★★ */}
             <button 
               onClick={() => !roomStatus[0] && setPlayerID('0')}
               disabled={!!roomStatus[0]}
@@ -539,7 +526,7 @@ const NinjaLobby = ({ onJoin }) => {
                   opacity: roomStatus[0] ? 0.7 : 1
               }}
             >
-              {roomStatus[0] ? '🚫 線上' : '👤 P0'}
+              {roomStatus[0] ? '🚫 已有人登入' : '👤 P0'}
             </button>
             <button 
               onClick={() => !roomStatus[1] && setPlayerID('1')}
@@ -551,7 +538,7 @@ const NinjaLobby = ({ onJoin }) => {
                   opacity: roomStatus[1] ? 0.7 : 1
               }}
             >
-              {roomStatus[1] ? '🚫 線上' : '👤 P1'}
+              {roomStatus[1] ? '🚫 已有人登入' : '👤 P1'}
             </button>
           </div>
         </div>
@@ -563,13 +550,17 @@ const NinjaLobby = ({ onJoin }) => {
   );
 };
 
-// ==========================================
-// 3. 主程式 (App)
-// ==========================================
+// ... (App component remains standard)
 const App = () => {
   const [gameState, setGameState] = useState(null);
 
+  // ★★★ 自動判斷連線環境 (Render 部署用) ★★★
+  const SERVER_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:8000'
+    : 'https://ninja-draft-server.onrender.com'; // <--- 之後這裡填入你的 Render 網址
+
   const handleJoin = (matchID, playerID) => {
+    // 產生唯一憑證 (避免重整後斷線)
     const credKey = `ninja_cred_${matchID}_${playerID}`;
     let credentials = localStorage.getItem(credKey);
     if (!credentials) {
@@ -580,7 +571,7 @@ const App = () => {
     const NinjaClient = Client({
       game: NinjaDraft,
       board: NinjaBoard,
-      // ★★★ 3. 使用 SERVER_URL 連線 ★★★
+      // 使用變數決定連線位址
       multiplayer: SocketIO({ server: SERVER_URL }),
       credentials: credentials,
       debug: false,
