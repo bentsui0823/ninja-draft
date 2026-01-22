@@ -495,8 +495,22 @@ const NinjaLobby = ({ onJoin }) => {
   }, [matchID]);
 
   const handleJoinClick = () => {
-      if (playerID === null) { alert("請選擇位置 (P0 或 P1)！"); return; }
-      onJoin(matchID, playerID);
+    // 1. 基本檢查
+    if (playerID === null) { alert("請選擇位置 (P0 或 P1)！"); return; }
+
+    // 2. ★★★ 防雙開檢查 (Anti-Dual-Boxing) ★★★
+    // 計算對手的 ID (如果是 0 就查 1，是 1 就查 0)
+    const opponentID = playerID === '0' ? '1' : '0';
+    const opponentKey = `ninja_cred_${matchID}_${opponentID}`;
+    
+    // 檢查瀏覽器是否已經有對手的憑證
+    if (localStorage.getItem(opponentKey)) {
+        alert(`⛔ 你已經在這個房間擔任 Player ${opponentID} 了！\n為了公平起見，同一個瀏覽器不能同時操作兩邊。\n`);
+        return;
+    }
+
+    // 3. 通過檢查，進入遊戲
+    onJoin(matchID, playerID);
   };
 
   return (
