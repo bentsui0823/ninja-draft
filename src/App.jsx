@@ -5,13 +5,14 @@ import { SocketIO } from 'boardgame.io/multiplayer';
 import { NinjaDraft } from './Game';
 import { cardDatabase } from './database';
 
-const NinjaBoard = ({ G, ctx, moves, playerID, matchID, onLeave, displayName }) => {
+const NinjaBoard = ({ G, ctx, moves, playerID, matchID, onLeave }) => {
   
   const [draftSelection, setDraftSelection] = useState([]);
 
   // --- CSS ---
+  // ★★★ 修正點 1: 在 .game-container 加入 color: #333，防止整頁文字被深色模式變白 ★★★
   const css = `
-    .game-container { padding: 20px; font-family: sans-serif; max-width: 1200px; margin: 0 auto; }
+    .game-container { padding: 20px; font-family: sans-serif; max-width: 1200px; margin: 0 auto; color: #333; }
     .game-layout { display: flex; gap: 30px; align-items: flex-start; }
     .left-panel { flex: 0 0 640px; max-width: 100%; }
     .right-panel { flex: 1; min-width: 300px; position: sticky; top: 20px; }
@@ -31,16 +32,6 @@ const NinjaBoard = ({ G, ctx, moves, playerID, matchID, onLeave, displayName }) 
   `;
   
   if (!G) return <div style={{textAlign:'center', marginTop:'50px'}}>正在載入遊戲資料...</div>;
-
-  // Helper: 取得顯示名稱
-  const getPlayerName = (id) => {
-      const strID = String(id);
-      let name = G.names && G.names[strID] ? G.names[strID] : `Player ${id}`;
-      if (String(playerID) === strID && displayName && (name === `Player ${id}` || name === `Player ${strID}`)) {
-          name = displayName;
-      }
-      return name;
-  };
 
   // --- 1. 遊戲結束畫面 ---
   if (ctx.gameover) {
@@ -121,15 +112,14 @@ const NinjaBoard = ({ G, ctx, moves, playerID, matchID, onLeave, displayName }) 
             for (let i = setTiers.length - 1; i >= 0; i--) { if (stats.setsCount >= setTiers[i]) { setTierIdx = i; break; } }
             const weaponTiers = [3, 4, 5]; const weaponScores = [2, 5, 7];
             const weaponElements = [{ key: 'fire', label: '火', color: '#e67e22' }, { key: 'water', label: '水', color: '#2980b9' }, { key: 'thunder', label: '雷', color: '#f1c40f' }, { key: 'wind', label: '風', color: '#27ae60' }];
-            const playerName = getPlayerName(id);
-
+            
             return (
               <div key={id} style={{ padding: '20px', border: isPWinner ? '4px solid #f1c40f' : '1px solid #ccc', borderRadius: '16px', width: '340px', backgroundColor: id === playerID ? '#fcfdff' : '#fff', boxShadow: isPWinner ? '0 8px 20px rgba(241, 196, 15, 0.3)' : 'none', textAlign: 'left', position: 'relative', overflow: 'hidden' }}>
                 {isPWinner && <div style={{ position: 'absolute', top: '10px', right: '-30px', backgroundColor: '#f1c40f', color: '#fff', padding: '5px 40px', transform: 'rotate(45deg)', fontWeight: 'bold', fontSize: '12px', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}>WINNER</div>}
                 <div style={{ textAlign: 'center', borderBottom: '2px solid #eee', paddingBottom: '10px', marginBottom: '10px' }}>
                   <h2 style={{ margin: '0', fontSize: '24px', color: isPWinner ? '#d35400' : '#333' }}>
                     {isPWinner ? '👑 ' : ''}
-                    {playerName} {id === playerID && "(You)"}
+                    Player {id} {id === playerID && "(You)"}
                   </h2>
                   <div style={{ fontSize: '56px', fontWeight: 'bold', color: '#2c3e50', lineHeight: '1.2' }}>{pScore}</div>
                   <div style={{ fontSize: '12px', color: '#999' }}>FINAL SCORE</div>
@@ -222,6 +212,8 @@ const NinjaBoard = ({ G, ctx, moves, playerID, matchID, onLeave, displayName }) 
       padding: '8px', margin: '4px', borderRadius: '8px', textAlign: 'center',
       border: isSelected ? '3px solid #e74c3c' : (isTaken ? '1px dashed #ccc' : '1px solid #999'),
       backgroundColor: bgColor, fontSize: '13px', fontWeight: 'bold',
+      // ★★★ 修正點 2: 在這裡強制加入 color: #333，確保卡牌文字不會變白 ★★★
+      color: '#333', 
       cursor: (isTaken || isIntermission ? 'not-allowed' : (isMulligan || (isMyTurn && !isMulligan)) ? 'pointer' : 'default'),
       boxShadow: isTaken ? 'none' : '2px 2px 5px rgba(0,0,0,0.05)',
       transition: 'transform 0.1s', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
@@ -464,7 +456,7 @@ const NinjaLobby = ({ onJoin }) => {
   const [playerID, setPlayerID] = useState(null);
   const [roomStatus, setRoomStatus] = useState({ 0: false, 1: false });
 
-  // 自動檢查房間狀態 (Debounce)
+  // 自動檢查房間狀態
   useEffect(() => {
     const checkRoom = async () => {
         if (!matchID) return;
@@ -472,6 +464,7 @@ const NinjaLobby = ({ onJoin }) => {
             const resp = await fetch(`http://localhost:8000/games/ninja-draft/${matchID}`);
             if (resp.ok) {
                 const data = await resp.json();
+                // 只要有人連線中，就視為已佔用
                 const p0Occupied = data.players && data.players[0] && data.players[0].isConnected;
                 const p1Occupied = data.players && data.players[1] && data.players[1].isConnected;
                 setRoomStatus({ 0: p0Occupied, 1: p1Occupied });
@@ -553,7 +546,7 @@ const App = () => {
   // ★★★ 自動判斷連線環境 (Render 部署用) ★★★
   const SERVER_URL = window.location.hostname === 'localhost'
     ? 'http://localhost:8000'
-    : 'https://ninja-draft-server.onrender.com';
+    : 'https://ninja-draft-server.onrender.com'; // <--- 之後這裡填入你的 Render 網址
 
   const handleJoin = (matchID, playerID) => {
     // 產生唯一憑證 (避免重整後斷線)
