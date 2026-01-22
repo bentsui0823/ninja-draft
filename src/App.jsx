@@ -10,22 +10,101 @@ const SERVER_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:8000'
   : 'https://ninja-draft-server.onrender.com';
 
+// ==========================================
+// 0. 規則說明視窗 (RulesModal Component)
+// ==========================================
+const RulesModal = ({ onClose }) => {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <button className="close-btn" onClick={onClose}>✕</button>
+        <h2 style={{ textAlign: 'center', borderBottom: '2px solid #eee', paddingBottom: '10px', marginTop: 0 }}>
+          📜 忍界選拔戰 - 遊戲規則
+        </h2>
+        
+        <div className="rules-body">
+          <h3>1. 遊戲目標</h3>
+          <p>兩位玩家透過 <b>「起始手牌」</b> 與 <b>「四輪輪抽」</b>，收集 <b>人物、武器、寶物</b> 卡牌。遊戲結束時，系統將根據卡牌組合計算總分，分數高者獲勝。</p>
+
+          <h3>2. 遊戲流程</h3>
+          <ul>
+            <li><b>起始調度：</b>每人發 6 張手牌，可選擇任意張數「退回牌庫重抽」一次，換取更好的開局。</li>
+            <li><b>輪抽階段 (共 4 回合)：</b>
+              <ul>
+                <li>每回合中央翻開 10 張新卡牌。</li>
+                <li>每人每回合選走 3 張，剩餘 4 張棄掉。</li>
+                <li><b>選牌順序 (蛇形)：</b>先手(1) → 後手(2) → 先手(2) → 後手(1)。</li>
+                {/* ★★★ 修改處：更精準的先後手說明 ★★★ */}
+                <li><b>輪替機制：</b>首位玩家隨機決定。假設 R1 為 P0 先手，則 R2、R3 改由 P1 先手，R4 再回到 P0 先手。</li>
+              </ul>
+            </li>
+          </ul>
+
+          <h3>3. 計分規則</h3>
+          
+          <div className="rule-box" style={{background:'#f0f8ff', borderLeft:'4px solid #2196f3'}}>
+            <h4>🅰️ 人物加成</h4>
+            <ul>
+              <li><b>👥 羈絆 (+2分)：</b>收集到特定相關的兩人：
+                <div style={{fontSize:'12px', color:'#555', marginTop:'2px', lineHeight:'1.4'}}>
+                  • 小黑 / 龍焰<br/>
+                  • 琳 / 雪舞<br/>
+                  • 蒼牙 / 緋斬<br/>
+                  • 阿力 / 超威<br/>
+                  • 小椒 / 星閃<br/>
+                  • 伊賀 / 兮蘭<br/>
+                  • 銀梟 / 小夜
+                </div>
+              </li>
+              <li style={{marginTop:'5px'}}><b>🧩 四人組 (+6分)：</b>集齊 <b>落青、衛鯉、紫原、隼白</b> 四人。</li>
+              <li><b>🏮 遊俠 (+1分)：</b>獲得傳說人物 <b>戌時</b>。</li>
+            </ul>
+          </div>
+
+          <div className="rule-box" style={{background:'#f3e5f5', borderLeft:'4px solid #9c27b0'}}>
+            <h4>🅱️ 套裝加成</h4>
+            <ul>
+              <li><b>✨ 變身：</b>同時擁有「人物」+「對應的專屬寶物」。</li>
+              <li>2套 (+4分) / 4套 (+9分) / 6套以上 (+15分)</li>
+            </ul>
+          </div>
+
+          <div className="rule-box" style={{background:'#ffebee', borderLeft:'4px solid #f44336'}}>
+            <h4>🅾️ 武器元素</h4>
+            <ul>
+              <li>收集相同屬性 (火、水、雷、風) 的武器。</li>
+              <li>3把 (+2分) / 4把 (+5分) / 5把以上 (+7分)</li>
+            </ul>
+          </div>
+
+          <div className="rule-box" style={{background:'#e8f5e9', borderLeft:'4px solid #4caf50'}}>
+            <h4>🏆 三大獎勵 (只取最高一項)</h4>
+            <p style={{fontSize:'13px', margin:'5px 0'}}>系統會比較你擁有的人物、武器、寶物總數，取分數最高的一項加分：</p>
+            <ul>
+              <li><b>大團圓 (人物)：</b>8張(+7) / 12張(+15) / 15張(+21)</li>
+              <li><b>大武庫 (武器)：</b>8張(+6) / 12張(+14) / 15張(+20)</li>
+              <li><b>大富翁 (寶物)：</b>8張(+8) / 12張(+16) / 15張(+22)</li>
+            </ul>
+          </div>
+        </div>
+        
+        <button className="confirm-btn" style={{marginTop:'20px'}} onClick={onClose}>我瞭解了</button>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// 1. 遊戲主畫面 (NinjaBoard)
+// ==========================================
 const NinjaBoard = ({ G, ctx, moves, playerID, matchID, onLeave, displayName }) => {
   
   const [draftSelection, setDraftSelection] = useState([]);
+  const [showRules, setShowRules] = useState(false); // 控制規則視窗
 
   // --- CSS ---
   const css = `
-    .game-container { 
-      padding: 20px; 
-      font-family: sans-serif; 
-      max-width: 1200px; 
-      margin: 0 auto; 
-      color: #333; 
-      background-color: #ffffff;
-      min-height: 100vh;
-      box-sizing: border-box;
-    }
+    .game-container { padding: 20px; font-family: sans-serif; max-width: 1200px; margin: 0 auto; color: #333; background-color: #ffffff; min-height: 100vh; box-sizing: border-box; }
     .game-layout { display: flex; gap: 30px; align-items: flex-start; }
     .left-panel { flex: 0 0 640px; max-width: 100%; }
     .right-panel { flex: 1; min-width: 300px; position: sticky; top: 20px; }
@@ -39,27 +118,35 @@ const NinjaBoard = ({ G, ctx, moves, playerID, matchID, onLeave, displayName }) 
     .confirm-btn:not(:disabled):active { transform: translateY(2px); box-shadow: 0 2px 0 #219150; }
     .wait-message { padding: 15px; background-color: #e0e0e0; border-radius: 8px; border: 1px solid #bdbdbd; text-align: center; margin-top: 15px; color: #616161; font-weight: bold; animation: pulse-gray 2s infinite; }
     .round-end-msg { padding: 15px; background-color: #e3f2fd; border-radius: 8px; border: 1px solid #2196f3; text-align: center; margin-top: 15px; color: #0d47a1; font-weight: bold; }
-    .room-info { position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 20px; font-size: 12px; z-index: 100; }
+    .room-info { position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 20px; font-size: 12px; z-index: 100; display: flex; align-items: center; gap: 10px; }
+    .help-btn { background: #3498db; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    
+    /* Modal Styles */
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+    .modal-content { background: white; width: 90%; max-width: 600px; max-height: 85vh; border-radius: 12px; padding: 25px; overflow-y: auto; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+    .close-btn { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 20px; cursor: pointer; color: #999; }
+    .rules-body h3 { border-left: 4px solid #333; padding-left: 10px; margin-top: 20px; margin-bottom: 10px; font-size: 18px; }
+    .rules-body ul { padding-left: 20px; margin: 5px 0; }
+    .rules-body li { margin-bottom: 5px; font-size: 14px; line-height: 1.5; }
+    .rule-box { padding: 10px; border-radius: 6px; margin-bottom: 10px; }
+    .rule-box h4 { margin: 0 0 5px 0; font-size: 15px; }
+
     @keyframes pulse-gray { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
     @media (max-width: 1000px) { .game-layout { flex-direction: column; } .left-panel { flex: 1; width: 100%; } .right-panel { width: 100%; min-width: auto; } .info-two-col { grid-template-columns: 1fr; } .card-item { width: 30% !important; font-size: 12px !important; } }
   `;
   
-  // 防呆：確保 G 存在
   if (!G) return <div style={{textAlign:'center', marginTop:'50px'}}>正在載入遊戲資料...</div>;
 
-  // ★★★ 修正點：將 getPlayerName 定義在最上方，確保遊戲結束畫面讀得到 ★★★
   const getPlayerName = (id) => {
       const strID = String(id);
-      // 安全檢查：確保 G.names 存在
       let name = (G.names && G.names[strID]) ? G.names[strID] : `Player ${id}`;
-      // 如果是自己，且伺服器顯示預設名，則顯示本地名稱 (雖然現在沒輸入框了，保留邏輯無妨)
       if (String(playerID) === strID && displayName && (name === `Player ${id}` || name === `Player ${strID}`)) {
           name = displayName;
       }
       return name;
   };
 
-  // --- 1. 遊戲結束畫面 (Game Over) ---
+  // --- 1. 遊戲結束畫面 ---
   if (ctx.gameover) {
     const winner = ctx.gameover.winner;
     const isWinner = winner === playerID;
@@ -138,7 +225,6 @@ const NinjaBoard = ({ G, ctx, moves, playerID, matchID, onLeave, displayName }) 
             for (let i = setTiers.length - 1; i >= 0; i--) { if (stats.setsCount >= setTiers[i]) { setTierIdx = i; break; } }
             const weaponTiers = [3, 4, 5]; const weaponScores = [2, 5, 7];
             const weaponElements = [{ key: 'fire', label: '火', color: '#e67e22' }, { key: 'water', label: '水', color: '#2980b9' }, { key: 'thunder', label: '雷', color: '#f1c40f' }, { key: 'wind', label: '風', color: '#27ae60' }];
-            // ★★★ 這裡呼叫 getPlayerName，現在它一定被定義了 ★★★
             const playerName = getPlayerName(id);
 
             return (
