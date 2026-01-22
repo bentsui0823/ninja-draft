@@ -10,7 +10,7 @@ const SERVER_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:8000'
   : 'https://ninja-draft-server.onrender.com';
 
-const NinjaBoard = ({ G, ctx, moves, playerID, matchID, onLeave }) => {
+const NinjaBoard = ({ G, ctx, moves, playerID, matchID, onLeave, displayName }) => {
   
   const [draftSelection, setDraftSelection] = useState([]);
 
@@ -44,9 +44,22 @@ const NinjaBoard = ({ G, ctx, moves, playerID, matchID, onLeave }) => {
     @media (max-width: 1000px) { .game-layout { flex-direction: column; } .left-panel { flex: 1; width: 100%; } .right-panel { width: 100%; min-width: auto; } .info-two-col { grid-template-columns: 1fr; } .card-item { width: 30% !important; font-size: 12px !important; } }
   `;
   
+  // 防呆：確保 G 存在
   if (!G) return <div style={{textAlign:'center', marginTop:'50px'}}>正在載入遊戲資料...</div>;
 
-  // --- 1. 遊戲結束畫面 ---
+  // ★★★ 修正點：將 getPlayerName 定義在最上方，確保遊戲結束畫面讀得到 ★★★
+  const getPlayerName = (id) => {
+      const strID = String(id);
+      // 安全檢查：確保 G.names 存在
+      let name = (G.names && G.names[strID]) ? G.names[strID] : `Player ${id}`;
+      // 如果是自己，且伺服器顯示預設名，則顯示本地名稱 (雖然現在沒輸入框了，保留邏輯無妨)
+      if (String(playerID) === strID && displayName && (name === `Player ${id}` || name === `Player ${strID}`)) {
+          name = displayName;
+      }
+      return name;
+  };
+
+  // --- 1. 遊戲結束畫面 (Game Over) ---
   if (ctx.gameover) {
     const winner = ctx.gameover.winner;
     const isWinner = winner === playerID;
@@ -125,6 +138,7 @@ const NinjaBoard = ({ G, ctx, moves, playerID, matchID, onLeave }) => {
             for (let i = setTiers.length - 1; i >= 0; i--) { if (stats.setsCount >= setTiers[i]) { setTierIdx = i; break; } }
             const weaponTiers = [3, 4, 5]; const weaponScores = [2, 5, 7];
             const weaponElements = [{ key: 'fire', label: '火', color: '#e67e22' }, { key: 'water', label: '水', color: '#2980b9' }, { key: 'thunder', label: '雷', color: '#f1c40f' }, { key: 'wind', label: '風', color: '#27ae60' }];
+            // ★★★ 這裡呼叫 getPlayerName，現在它一定被定義了 ★★★
             const playerName = getPlayerName(id);
 
             return (
@@ -133,7 +147,7 @@ const NinjaBoard = ({ G, ctx, moves, playerID, matchID, onLeave }) => {
                 <div style={{ textAlign: 'center', borderBottom: '2px solid #eee', paddingBottom: '10px', marginBottom: '10px' }}>
                   <h2 style={{ margin: '0', fontSize: '24px', color: isPWinner ? '#d35400' : '#333' }}>
                     {isPWinner ? '👑 ' : ''}
-                    Player {id} {id === playerID && "(You)"}
+                    {playerName} {id === playerID && "(You)"}
                   </h2>
                   <div style={{ fontSize: '56px', fontWeight: 'bold', color: '#2c3e50', lineHeight: '1.2' }}>{pScore}</div>
                   <div style={{ fontSize: '12px', color: '#999' }}>FINAL SCORE</div>
@@ -495,7 +509,6 @@ const NinjaLobby = ({ onJoin }) => {
 
   const handleJoinClick = () => {
       if (playerID === null) { alert("請選擇位置 (P0 或 P1)！"); return; }
-      // ★★★ 移除了 localStorage 防雙開檢查，現在可以自由測試 ★★★
       onJoin(matchID, playerID);
   };
 
@@ -515,7 +528,6 @@ const NinjaLobby = ({ onJoin }) => {
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>選擇位置</label>
           <div style={{ display: 'flex', gap: '10px' }}>
-            {/* ★★★ 修改這裡：文字變成「已有人登入」 ★★★ */}
             <button 
               onClick={() => !roomStatus[0] && setPlayerID('0')}
               disabled={!!roomStatus[0]}
@@ -550,7 +562,9 @@ const NinjaLobby = ({ onJoin }) => {
   );
 };
 
-// ... (App component remains standard)
+// ==========================================
+// 3. 主程式 (App)
+// ==========================================
 const App = () => {
   const [gameState, setGameState] = useState(null);
 
